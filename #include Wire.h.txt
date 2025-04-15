@@ -1,0 +1,93 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Servo.h>
+
+// Setup LCD (Change address to 0x3F if needed)
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// Pins
+const int entryIR = 2;
+const int exitIR = 3;
+const int maxCars = 6;
+
+int carCount = 0;
+
+Servo entryGate;
+Servo exitGate;
+
+bool entryFlag = false;
+bool exitFlag = false;
+
+void setup() {
+  Serial.begin(9600);
+  
+  // Initialize LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print(" Smart Parking ");
+  
+  delay(2000);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Cars Inside: 0");
+
+  // Servo setup
+  entryGate.attach(9);
+  exitGate.attach(10);
+  entryGate.write(0);  // Closed
+  exitGate.write(0);   // Closed
+
+  // IR sensor pins
+  pinMode(entryIR, INPUT);
+  pinMode(exitIR, INPUT);
+}
+
+void loop() {
+  int entryStatus = digitalRead(entryIR);
+  int exitStatus = digitalRead(exitIR);
+
+  // Entry detection
+  if (entryStatus == LOW && !entryFlag) {
+    entryFlag = true;
+    if (carCount < maxCars) {
+      carCount++;
+      openGate(entryGate);
+      updateLCD();
+      Serial.println("Car Entered");
+    } else {
+      lcd.setCursor(0, 1);
+      lcd.print(" Parking Full  ");
+    }
+  }
+
+  if (entryStatus == HIGH) entryFlag = false;
+
+  // Exit detection
+  if (exitStatus == LOW && !exitFlag) {
+    exitFlag = true;
+    if (carCount > 0) {
+      carCount--;
+      openGate(exitGate);
+      updateLCD();
+      Serial.println("Car Exited");
+    }
+  }
+
+  if (exitStatus == HIGH) exitFlag = false;
+}
+
+void openGate(Servo &gate) {
+  gate.write(90);  // Open position
+  delay(2000);
+  gate.write(0);   // Close position
+}
+
+void updateLCD() {
+  lcd.setCursor(0, 0);
+  lcd.print("Cars Inside:   ");
+  lcd.setCursor(13, 0);
+  lcd.print(carCount);
+  lcd.setCursor(0, 1);
+  lcd.print("                ");  // Clear 2nd line
+}
